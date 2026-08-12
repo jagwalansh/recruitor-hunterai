@@ -33,7 +33,6 @@ const features = [
 
 const jobPlatforms = [
   { name: 'LinkedIn', mark: 'in', className: 'platform-linkedin' },
-  { name: 'Naukri', mark: 'n', className: 'platform-naukri' },
   { name: 'Internshala', mark: 'i', className: 'platform-internshala' },
 ] as const;
 
@@ -80,7 +79,7 @@ function DashboardMock({ countersActive }: { countersActive: boolean }) {
         </div>
         <div className="mt-7 rounded-md bg-white/12 px-3 py-2 text-xs text-white/72">Search profile</div>
         <div className="mt-8 space-y-4 text-sm text-white/72">
-          {['Dashboard', 'Skill graph', 'Applications', 'Saved roles', 'Reports'].map((item, index) => (
+          {['Dashboard', 'Skill graph', 'Applications', 'Saved roles'].map((item, index) => (
             <div key={item} className={`flex items-center hover:bg-black/20 hover:transition-all p-2 rounded-2xl justify-between ${index === 0 ? 'text-white' : ''}`}>
               <span>{item}</span>
               {index === 0 && <span className="rounded-full bg-white/18 px-2 py-0.5 text-xs">12</span>}
@@ -447,9 +446,9 @@ export default function Home() {
                 One resume, three live job markets.
               </h2>
 
-              <div className="source-orbit reveal mt-12 w-full max-w-6xl" aria-label="LinkedIn, Naukri, and Internshala job source animation">
+              <div className="source-orbit reveal mt-12 w-full max-w-6xl" aria-label="LinkedIn and Internshala job source animation">
                 <CurvedLoop
-                  marqueeText="LinkedIn ✦ Naukri ✦ Internshala ✦"
+                  marqueeText="LinkedIn ✦ Internshala ✦"
                   speed={1.35}
                   curveAmount={260}
                   direction="right"

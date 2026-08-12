@@ -3,14 +3,12 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, User, Sparkles, Upload, LogOut, Bookmark, Bot, FileEdit, ChevronLeft, ChevronRight, Search, Building } from "lucide-react";
+import { LayoutDashboard, User, Sparkles, Upload, LogOut, Bookmark, Bot, FileEdit, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { AuthModal } from "@/components/auth/AuthModal";
-import ExportReportButton from "@/components/dashboard/ExportReportButton";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard",       icon: LayoutDashboard },
-  { href: "/direct-jobs", label: "Direct Recruiter", icon: Building },
   { href: "/upload",    label: "Upload",          icon: Upload },
   { href: "/recommendations", label: "Matches", icon: Sparkles },
   { href: "/bookmarks", label: "Saved",           icon: Bookmark },
@@ -116,9 +114,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
-          <div style={{ marginTop: "16px", padding: "0 12px", display: "flex", justifyContent: "center" }}>
-            <ExportReportButton collapsed={collapsed} />
-          </div>
         </nav>
 
         {/* Account Option shifted to Sidebar Footer */}

@@ -38,9 +38,6 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [matches, setMatches] = useState<JobMatch[]>([]);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
-  const [recruiterOpenings, setRecruiterOpenings] = useState<any[]>([]);
-  const [myApplications, setMyApplications] = useState<any[]>([]);
-  const [applyingId, setApplyingId] = useState<number | null>(null);
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("");
   const [remoteOnly, setRemoteOnly] = useState(false);
@@ -66,7 +63,7 @@ export default function Dashboard() {
       setProfile(selectedProfile);
 
       const emailToUse = selectedProfile?.email || user?.email || undefined;
-      const [nextMatches, saved, openings, apps] = await Promise.all([
+      const [nextMatches, saved] = await Promise.all([
         api.getMatches(
           emailToUse,
           filters?.keyword?.trim() || undefined,
@@ -74,33 +71,16 @@ export default function Dashboard() {
           filters?.remoteOnly
         ).catch(() => []),
         api.getSavedInternships().catch(() => []),
-        api.browseJobPostings({ keyword: filters?.keyword, location: filters?.location, remote_only: filters?.remoteOnly }).catch(() => []),
-        api.getMyApplications().catch(() => []),
       ]);
 
       setMatches(nextMatches || []);
       setSavedIds(new Set(saved.map((job: any) => job.id).filter((id: any): id is number => typeof id === "number")));
-      setRecruiterOpenings(openings || []);
-      setMyApplications(apps || []);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load dashboard";
       setError(`${message}. Make sure the HunterAI backend is running at http://127.0.0.1:8000.`);
     } finally {
       setLoading(false);
       setRefreshing(false);
-    }
-  };
-
-  const handleApplyToRecruiterJob = async (postingId: number) => {
-    setApplyingId(postingId);
-    try {
-      await api.applyToJob(postingId);
-      const updatedApps = await api.getMyApplications().catch(() => []);
-      setMyApplications(updatedApps);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to apply");
-    } finally {
-      setApplyingId(null);
     }
   };
 
@@ -190,13 +170,20 @@ export default function Dashboard() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4);
 
-  const missingSkills: [string, number][] = aggregatedMissing.length > 0
-    ? aggregatedMissing
-    : [
-        ["System Architecture", 2],
-        ["PostgreSQL", 1],
-        ["Docker / Kubernetes", 1],
-      ];
+  const hasUploadedProfile = Boolean(
+    profile && (
+      profile.email ||
+      profile.name ||
+      profile.username ||
+      (profile.skills && profile.skills.length > 0) ||
+      (profile.projects && profile.projects.length > 0) ||
+      (profile.experience && profile.experience.length > 0)
+    )
+  );
+
+  const missingSkills: [string, number][] = hasUploadedProfile
+    ? (aggregatedMissing.length > 0 ? aggregatedMissing : [])
+    : [];
 
   return (
     <div style={{ minHeight: "100vh", padding: "24px 0 60px" }}>
@@ -521,140 +508,6 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-
-          {/* Direct Recruiter Openings Section */}
-          <div style={{ background: "rgba(255, 255, 255, 0.75)", border: "1px solid var(--border-strong)", borderRadius: "20px", padding: "20px 24px", boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
-              <div>
-                <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", padding: "3px 8px", borderRadius: "6px", background: "rgba(16, 185, 129, 0.15)", color: "#10B981" }}>
-                  Direct Recruiter Hiring
-                </span>
-                <h2 style={{ fontSize: "18px", fontWeight: 700, margin: "6px 0 0", color: "var(--text-primary)" }}>
-                  Open Positions Posted by Recruiters
-                </h2>
-              </div>
-              {myApplications.length > 0 && (
-                <span style={{ fontSize: "12.5px", color: "var(--text-muted)", fontWeight: 600 }}>
-                  You have applied to {myApplications.length} job{myApplications.length > 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-
-            {recruiterOpenings.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "24px 16px", background: "var(--bg-base)", borderRadius: "12px", border: "1px dashed var(--border-strong)" }}>
-                <p style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>No recruiter openings published yet</p>
-                <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "4px 0 0" }}>
-                  Switch to <strong>Recruiter Mode</strong> to post the first job opening!
-                </p>
-              </div>
-            ) : (
-              <div style={{ maxHeight: "260px", overflowY: "auto", paddingRight: "4px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "14px" }}>
-                {recruiterOpenings.map((posting) => {
-                  const myApp = myApplications.find((a: any) => a.job_posting_id === posting.id);
-                  const isApplying = applyingId === posting.id;
-
-                  return (
-                    <div
-                      key={posting.id}
-                      onClick={() => {
-                        window.location.href = `/direct-jobs?jobId=${posting.id}`;
-                      }}
-                      style={{
-                        background: "var(--bg-surface)",
-                        border: "1px solid var(--border-strong)",
-                        borderRadius: "14px",
-                        padding: "16px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "10px",
-                        position: "relative",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease"
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
-                        <div>
-                          <h3 style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
-                            {posting.title}
-                          </h3>
-                          <p style={{ fontSize: "12.5px", color: "var(--text-muted)", margin: "2px 0 0" }}>
-                            {posting.company} {posting.location ? `· ${posting.location}` : ""} {posting.is_remote ? "🌐 Remote" : ""}
-                          </p>
-                        </div>
-
-                        {/* Application Status Badge or View Link */}
-                        {myApp ? (
-                          <span
-                            style={{
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              textTransform: "uppercase",
-                              padding: "4px 8px",
-                              borderRadius: "6px",
-                              background: myApp.status === "shortlisted"
-                                ? "rgba(16, 185, 129, 0.15)"
-                                : myApp.status === "rejected"
-                                ? "rgba(239, 68, 68, 0.15)"
-                                : "rgba(59, 130, 246, 0.15)",
-                              color: myApp.status === "shortlisted"
-                                ? "#10B981"
-                                : myApp.status === "rejected"
-                                ? "#EF4444"
-                                : "#3B82F6",
-                              whiteSpace: "nowrap"
-                            }}
-                          >
-                            {myApp.status === "shortlisted" ? "✓ Accepted" : myApp.status === "rejected" ? "✕ Rejected" : "Applied"}
-                          </span>
-                        ) : (
-                          <span
-                            style={{
-                              fontSize: "11.5px",
-                              fontWeight: 600,
-                              color: "#10B981",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              whiteSpace: "nowrap"
-                            }}
-                          >
-                            View & Apply →
-                          </span>
-                        )}
-                      </div>
-
-                      {posting.salary_range && (
-                        <p style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>
-                          Salary/Stipend: {posting.salary_range}
-                        </p>
-                      )}
-
-                      {posting.skills_required?.length > 0 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                          {posting.skills_required.map((sk: string, i: number) => (
-                            <span
-                              key={i}
-                              style={{
-                                fontSize: "10.5px",
-                                fontWeight: 600,
-                                padding: "2px 6px",
-                                borderRadius: "4px",
-                                background: "var(--bg-elevated)",
-                                border: "1px solid var(--border)",
-                                color: "var(--text-secondary)"
-                              }}
-                            >
-                              {sk}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Lower Two-Column Grid */}
@@ -813,79 +666,98 @@ export default function Dashboard() {
           {/* Right Column: Skill Gaps & Profile Signals */}
           <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
             {/* Skill Gaps Card */}
-            <div className="dashboard-panel" style={{ padding: "20px 24px" }}>
-              <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, marginBottom: "16px", color: "var(--text-primary)" }}>
-                Skill gaps
-              </h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {missingSkills.map(([skill, count]) => (
-                  <div
-                    key={skill}
-                    style={{
-                      background: "rgba(255, 255, 255, 0.6)",
-                      border: "1px solid rgba(255, 255, 255, 0.8)",
-                      borderRadius: "12px",
-                      padding: "14px 16px",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <p style={{ fontWeight: 700, fontSize: "13.5px", margin: 0, color: "var(--text-primary)" }}>
-                        {skill}
-                      </p>
-                      <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                        {count} role{count === 1 ? "" : "s"}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "4px 0 0" }}>
-                      Add stronger evidence to improve ATS scoring.
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Profile Signals Card */}
-            <div className="dashboard-panel" style={{ padding: "20px 24px" }}>
-              <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, marginBottom: "16px", color: "var(--text-primary)" }}>
-                Profile signals
-              </h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                {[
-                  { label: "Skills", val: skillsCount, max: 20 },
-                  { label: "Projects", val: projectsCount, max: 10 },
-                  { label: "Experience", val: expCount, max: 5 },
-                  { label: "Saved", val: savedIds.size, max: 10 },
-                ].map((sig) => {
-                  const pct = Math.min(100, Math.round((sig.val / sig.max) * 100));
-                  return (
-                    <div key={sig.label}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "6px" }}>
-                        <span style={{ fontWeight: 500, color: "var(--text-secondary)" }}>{sig.label}</span>
-                        <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>{sig.val}</span>
-                      </div>
+            {hasUploadedProfile ? (
+              <div className="dashboard-panel" style={{ padding: "20px 24px" }}>
+                <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, marginBottom: "16px", color: "var(--text-primary)" }}>
+                  Skill gaps
+                </h2>
+                {missingSkills.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {missingSkills.map(([skill, count]) => (
                       <div
+                        key={skill}
                         style={{
-                          height: "6px",
-                          borderRadius: "999px",
-                          background: "rgba(0,0,0,0.06)",
-                          overflow: "hidden",
+                          background: "rgba(255, 255, 255, 0.6)",
+                          border: "1px solid rgba(255, 255, 255, 0.8)",
+                          borderRadius: "12px",
+                          padding: "14px 16px",
                         }}
                       >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <p style={{ fontWeight: 700, fontSize: "13.5px", margin: 0, color: "var(--text-primary)" }}>
+                            {skill}
+                          </p>
+                          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                            {count} role{count === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "4px 0 0" }}>
+                          Add stronger evidence to improve ATS scoring.
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px", lineHeight: 1.6 }}>
+                    Upload a resume to identify the biggest skill gaps against your matches.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="dashboard-panel" style={{ padding: "20px 24px" }}>
+                <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, marginBottom: "8px", color: "var(--text-primary)" }}>
+                  Skill gaps
+                </h2>
+                <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px", lineHeight: 1.6 }}>
+                  Upload a resume to see your skill gaps and profile signals.
+                </p>
+              </div>
+            )}
+
+            {/* Profile Signals Card */}
+            {hasUploadedProfile && (
+              <div className="dashboard-panel" style={{ padding: "20px 24px" }}>
+                <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, marginBottom: "16px", color: "var(--text-primary)" }}>
+                  Profile signals
+                </h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {[
+                    { label: "Skills", val: skillsCount, max: 20 },
+                    { label: "Projects", val: projectsCount, max: 10 },
+                    { label: "Experience", val: expCount, max: 5 },
+                    { label: "Saved", val: savedIds.size, max: 10 },
+                  ].map((sig) => {
+                    const pct = Math.min(100, Math.round((sig.val / sig.max) * 100));
+                    return (
+                      <div key={sig.label}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "6px" }}>
+                          <span style={{ fontWeight: 500, color: "var(--text-secondary)" }}>{sig.label}</span>
+                          <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>{sig.val}</span>
+                        </div>
                         <div
                           style={{
-                            height: "100%",
-                            width: `${pct}%`,
-                            background: "var(--text-primary)",
+                            height: "6px",
                             borderRadius: "999px",
-                            transition: "width 0.3s ease",
+                            background: "rgba(0,0,0,0.06)",
+                            overflow: "hidden",
                           }}
-                        />
+                        >
+                          <div
+                            style={{
+                              height: "100%",
+                              width: `${pct}%`,
+                              background: "var(--text-primary)",
+                              borderRadius: "999px",
+                              transition: "width 0.3s ease",
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </main>
